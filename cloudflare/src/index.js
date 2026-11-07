@@ -100,7 +100,7 @@ export class EarthquakeHub extends DurableObject {
       const client = pair[0];
       const server = pair[1];
       this.ctx.acceptWebSocket(server);
-      this.ctx.waitUntil(this.ensureUpstream());
+      this.ensureUpstream().catch(error => console.error("Upstream start failed", error));
       return new Response(null, { status: 101, webSocket: client });
     }
 
@@ -118,7 +118,7 @@ export class EarthquakeHub extends DurableObject {
       }
       next.push(subscription);
       await this.ctx.storage.put("subscriptions", next);
-      this.ctx.waitUntil(this.ensureUpstream());
+      this.ensureUpstream().catch(error => console.error("Upstream start failed", error));
       return Response.json({ ok:true, count:next.length });
     }
 
@@ -158,8 +158,12 @@ export class EarthquakeHub extends DurableObject {
       this.upstream = socket;
       this.connectedAt = Date.now();
 
-      socket.addEventListener("message", event => {
-        this.ctx.waitUntil(this.handleUpstreamMessage(event.data));
+      socket.addEventListener("message", async event => {
+        try {
+          await this.handleUpstreamMessage(event.data);
+        } catch (error) {
+          console.error("Failed to process P2P message", error);
+        }
       });
       socket.addEventListener("close", () => {
         if (this.upstream === socket) this.upstream = null;
