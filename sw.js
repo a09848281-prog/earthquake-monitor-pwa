@@ -1,4 +1,4 @@
-const CACHE_NAME = "earthquake-monitor-shell-v1";
+const CACHE_NAME = "earthquake-monitor-shell-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -22,6 +22,17 @@ self.addEventListener("activate", (event) => {
       .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const client of windows) {
+      if ("focus" in client) return client.focus();
+    }
+    if (self.clients.openWindow) return self.clients.openWindow("./");
+  })());
 });
 
 self.addEventListener("fetch", (event) => {
