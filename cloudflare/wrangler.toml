@@ -1,0 +1,14 @@
+name = "earthquake-monitor-push"
+main = "src/index.js"
+compatibility_date = "2026-11-07"
+
+[triggers]
+crons = ["* * * * *"]
+
+[[durable_objects.bindings]]
+name = "EARTHQUAKE_HUB"
+class_name = "EarthquakeHub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["EarthquakeHub"]
