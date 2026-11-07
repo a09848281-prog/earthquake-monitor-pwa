@@ -1,4 +1,4 @@
-const CACHE_NAME = "earthquake-monitor-shell-v2";
+const CACHE_NAME = "earthquake-monitor-shell-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -24,14 +24,38 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch (_) {
+    payload = { title:"地震モニター", body:event.data ? event.data.text() : "新しい防災情報があります。" };
+  }
+  const title = payload.title || "地震モニター";
+  const options = {
+    body:payload.body || "新しい地震情報を受信しました。",
+    icon:"./icons/icon.svg",
+    badge:"./icons/icon.svg",
+    tag:payload.code && payload.id ? "eqm-" + payload.code + "-" + payload.id : "eqm-earthquake",
+    renotify:true,
+    data:{ url:payload.url || "./", event:payload.event || null },
+    requireInteraction:Number(payload.code) === 556
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const client of windows) {
-      if ("focus" in client) return client.focus();
+      if ("focus" in client) {
+        await client.focus();
+        if (event.notification.data?.url) client.navigate(new URL(event.notification.data.url, self.registration.scope).href);
+        return;
+      }
     }
-    if (self.clients.openWindow) return self.clients.openWindow("./");
+    if (self.clients.openWindow) return self.clients.openWindow(event.notification.data?.url || "./");
   })());
 });
 
