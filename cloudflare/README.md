@@ -12,7 +12,30 @@ This service extends the GitHub Pages earthquake monitor. It does not replace th
 
 P2P API data is best-effort, not guaranteed. It is not an official emergency alert delivery service and must not replace J-Alert, official EEW, or local authority information.
 
-## Deploy
+## Deploy from the Cloudflare dashboard (recommended)
+
+You can deploy directly from the GitHub repository without running commands on the iPad:
+
+1. Create or sign in to a Cloudflare account.
+2. Open **Workers & Pages** → **Create application** → **GitHub**.
+3. Connect GitHub and select `a09848281-prog/earthquake-monitor-pwa`.
+4. Set the Worker name to `earthquake-monitor-push`.
+5. Set the **Root directory** to `cloudflare`.
+6. Leave the build command empty and use `npx wrangler deploy` as the deploy command.
+7. Save and deploy. The name must match `name = "earthquake-monitor-push"` in `wrangler.toml`.
+
+After the first deployment, open the Worker → **Settings** → **Variables and Secrets**. Add these as **Secrets**:
+
+- `VAPID_PUBLIC_KEY`: generated public key
+- `VAPID_PRIVATE_KEY`: generated private key
+- `VAPID_SUBJECT`: `https://a09848281-prog.github.io/earthquake-monitor-pwa/`
+- `APP_TOKEN`: generated API protection token
+
+Redeploy the Worker after adding the secrets if the dashboard does not automatically activate the updated configuration. Copy the Worker `workers.dev` URL for the PWA settings.
+
+Cloudflare Workers Free currently includes SQLite-backed Durable Objects, but has daily request and compute-duration quotas. A continuously connected upstream WebSocket can use a meaningful part of the compute allowance; check current usage and pricing in your Cloudflare dashboard. Do not switch to a paid plan unless you explicitly choose to.
+
+## Deploy with Wrangler CLI
 
 Run these commands from the `cloudflare` directory with Node.js and npm installed:
 
