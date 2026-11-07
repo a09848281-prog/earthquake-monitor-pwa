@@ -23,7 +23,9 @@ small{color:#ffbe78}
 <textarea id="public" readonly></textarea>
 <label for="private">VAPID_PRIVATE_KEY（秘密鍵）</label>
 <textarea id="private" readonly></textarea>
-<small>※ 秘密鍵はCloudflare WorkerのSecretにだけ登録してください。生成ページやスクリーンショットを公開しないでください。</small>
+<label for="token">APP_TOKEN（購読API保護用トークン）</label>
+<textarea id="token" readonly></textarea>
+<small>※ 秘密鍵とAPP_TOKENはCloudflare WorkerのSecretにだけ登録してください。生成ページやスクリーンショットを公開しないでください。</small>
 <script>
 const toBase64Url = (bytes) => {
   let binary = "";
@@ -48,7 +50,9 @@ document.getElementById("generate").addEventListener("click", async () => {
     publicBytes.set(y,33);
     document.getElementById("public").value = toBase64Url(publicBytes);
     document.getElementById("private").value = jwk.d;
-    status.textContent = "生成しました。このページを閉じる前に2つの値をCloudflareのSecretへ登録してください。";
+    const tokenBytes = crypto.getRandomValues(new Uint8Array(32));
+    document.getElementById("token").value = toBase64Url(tokenBytes);
+    status.textContent = "生成しました。3つの値をCloudflareのSecretへ登録し、APP_TOKENはアプリ設定にも入力してください。";
   } catch (error) {
     status.textContent = "生成できませんでした: " + error.message;
   }
