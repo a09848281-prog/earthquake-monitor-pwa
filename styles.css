@@ -80,6 +80,10 @@ h1 { font-size: clamp(25px, 3vw, 34px); margin-bottom: 8px; letter-spacing: .015
 .map-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 39px; color: var(--muted); font-size: 10px; }
 .wave-panel { padding: 19px; }
 .estimate-tag { font-size: 9px; color: var(--orange); border: 1px solid rgba(255, 173, 97, .25); border-radius: 99px; padding: 5px 9px; white-space: nowrap; }
+.wave-heading-actions { display: flex; align-items: center; gap: 8px; }
+.latest-event-button { border: 1px solid rgba(85, 214, 232, .3); border-radius: 8px; padding: 6px 9px; color: var(--cyan); background: rgba(85, 214, 232, .08); font-size: 10px; font-weight: 700; white-space: nowrap; }
+.latest-event-button:hover { background: rgba(85, 214, 232, .16); color: white; }
+.latest-event-button[hidden] { display: none; }
 .empty-state { border: 1px dashed rgba(153, 179, 204, .2); border-radius: 13px; padding: 28px 18px; text-align: center; color: var(--muted); font-size: 11px; line-height: 1.7; background: rgba(8, 17, 28, .25); }
 .empty-state.compact { padding: 20px 14px; font-size: 10px; }
 .wave-content { display: grid; gap: 12px; }
