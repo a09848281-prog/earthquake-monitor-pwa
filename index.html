@@ -159,6 +159,9 @@
       <label class="field-label" for="workerUrlInput">Cloudflare Worker URL（バックグラウンド通知・リアルタイム接続）</label>
       <input id="workerUrlInput" class="text-input" type="url" inputmode="url" placeholder="https://earthquake-monitor-push.アカウント.workers.dev" autocomplete="url">
       <p class="field-help">Cloudflare Workerをデプロイした後、そのURLを入力してください。</p>
+      <label class="field-label" for="workerTokenInput">Cloudflare登録トークン</label>
+      <input id="workerTokenInput" class="text-input" type="password" autocomplete="off" placeholder="VAPID生成ページで作成したAPP_TOKEN">
+      <p class="field-help">購読登録APIを保護するための秘密文字列です。CloudflareのAPP_TOKENと同じ値を入力します。</p>
       <div class="form-divider"></div>
       <label class="field-label" for="pollIntervalInput">地震情報の取得間隔</label>
       <select id="pollIntervalInput" class="text-input">
