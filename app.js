@@ -6,6 +6,7 @@
   const CALLBACK_NAME = "__earthquakeMonitorJsonp";
   const DEFAULT_SETTINGS = {
     gasUrl: "",
+    workerUrl: "",
     pollSeconds: 15,
     arrivalLeadSeconds: 30,
     notifyNew: true,
@@ -34,7 +35,11 @@
     sentAlertKeys: new Set(),
     toastTimer: null,
     audioContext: null,
-    lastFetchAt: null
+    lastFetchAt: null,
+    liveSocket: null,
+    liveReconnectTimer: null,
+    liveReconnectDelay: 3000,
+    liveEventIds: new Set()
   };
 
   const $ = (id) => document.getElementById(id);
@@ -86,6 +91,7 @@
     startTicker();
     restartPolling();
     registerServiceWorker();
+    startLiveSocket();
     if (state.location && state.map) drawUserMarker();
   }
 
@@ -182,6 +188,16 @@
     }
     url.hash = "";
     return url.toString();
+  }
+
+  function normalizeWorkerUrl(value) {
+    let url;
+    try { url = new URL(String(value || "").trim()); }
+    catch (_) { throw new Error("Cloudflare Worker URLの形式を確認してください。"); }
+    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
+      throw new Error("Worker URLはhttps://で始まるURLを入力してください。");
+    }
+    return url.origin;
   }
 
   function jsonpRequest(baseUrl, timeoutMs = 12000) {
@@ -634,28 +650,155 @@
   }
 
   async function requestNotificationPermission() {
-    if (!("Notification" in window)) {
-      showToast("このブラウザーは通知に対応していません。");
-      return;
-    }
-    if (Notification.permission === "granted") {
-      updateNotificationState();
-      showToast("通知はすでに許可されています。");
+    if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      showToast("この環境ではWeb Pushを利用できません。iPadのホーム画面アプリから開いてください。");
       return;
     }
     if (Notification.permission === "denied") {
-      showToast("通知が拒否されています。ブラウザーまたは端末の設定から変更してください。");
+      showToast("通知が拒否されています。iPadの設定から通知を許可してください。");
       updateNotificationState();
       return;
     }
     try {
-      const permission = await Notification.requestPermission();
+      const permission = Notification.permission === "granted"
+        ? "granted"
+        : await Notification.requestPermission();
       updateNotificationState();
-      showToast(permission === "granted" ? "通知を許可しました。" : "通知は許可されませんでした。");
-      if (permission === "granted") sendNotification("通知テスト", "地震モニターの通知設定が完了しました。");
+      if (permission !== "granted") {
+        showToast("通知は許可されませんでした。");
+        return;
+      }
+      await subscribeForWebPush();
     } catch (error) {
-      showToast("通知の許可を取得できませんでした。");
+      console.error("Web Push registration failed", error);
+      showToast(error.message || "Web Pushの登録に失敗しました。");
     }
+  }
+
+  function base64UrlToBytes(value) {
+    const padding = "=".repeat((4 - value.length % 4) % 4);
+    const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(base64);
+    return Uint8Array.from(raw, character => character.charCodeAt(0));
+  }
+
+  async function subscribeForWebPush() {
+    if (!state.settings.workerUrl) {
+      openSettings();
+      showToast("先に設定からCloudflare Worker URLを登録してください。");
+      return;
+    }
+    const registration = await navigator.serviceWorker.ready;
+    const configResponse = await fetch(state.settings.workerUrl + "/api/config", { cache:"no-store" });
+    if (!configResponse.ok) throw new Error("Cloudflare Workerに接続できません。");
+    const config = await configResponse.json();
+    if (!config.publicKey) throw new Error("WorkerのVAPID公開鍵が未設定です。");
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:base64UrlToBytes(config.publicKey)
+      });
+    }
+    const response = await fetch(state.settings.workerUrl + "/api/subscribe", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(subscription)
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || "Push購読を保存できませんでした。");
+    showToast("バックグラウンド通知を登録しました！");
+    $("alertCopy").textContent = "Web Push登録済み。アプリを閉じている間も、新着地震情報・緊急地震速報の通知を受け取れます（配信は通信環境等に依存します）。";
+    sendNotification("通知設定完了", "地震モニターのWeb Push通知を登録しました。");
+  }
+
+  function startLiveSocket() {
+    window.clearTimeout(state.liveReconnectTimer);
+    if (state.liveSocket) {
+      try { state.liveSocket.close(); } catch (_) {}
+      state.liveSocket = null;
+    }
+    if (!state.settings.workerUrl) return;
+    const wsUrl = state.settings.workerUrl.replace(/^https:/, "wss:") + "/live";
+    try {
+      const socket = new WebSocket(wsUrl);
+      state.liveSocket = socket;
+      socket.addEventListener("open", () => {
+        state.liveReconnectDelay = 3000;
+        $("sourceName").textContent = "P2P地震情報 WebSocket + GAS";
+      });
+      socket.addEventListener("message", event => {
+        try {
+          const packet = JSON.parse(event.data);
+          if (packet.type === "earthquake") addLiveEarthquake(packet);
+        } catch (error) {
+          console.warn("Live earthquake message parse failed", error);
+        }
+      });
+      socket.addEventListener("close", () => {
+        if (state.liveSocket === socket) state.liveSocket = null;
+        scheduleLiveReconnect();
+      });
+      socket.addEventListener("error", () => {
+        try { socket.close(); } catch (_) {}
+      });
+    } catch (error) {
+      console.warn("Live WebSocket could not start", error);
+      scheduleLiveReconnect();
+    }
+  }
+
+  function scheduleLiveReconnect() {
+    if (!state.settings.workerUrl) return;
+    window.clearTimeout(state.liveReconnectTimer);
+    const delay = state.liveReconnectDelay;
+    state.liveReconnectTimer = window.setTimeout(() => {
+      state.liveReconnectDelay = Math.min(state.liveReconnectDelay * 2, 60000);
+      startLiveSocket();
+    }, delay);
+  }
+
+  function addLiveEarthquake(packet) {
+    const raw = packet.event || {};
+    const id = "p2p:" + String(raw.id || packet.id || Date.now());
+    if (state.liveEventIds.has(id)) return;
+    state.liveEventIds.add(id);
+    if (state.liveEventIds.size > 200) state.liveEventIds.delete(state.liveEventIds.values().next().value);
+    const originTime = normalizeP2PTime(raw.originTime);
+    const publishedAt = new Date();
+    const event = normalizeEvent({
+      id,
+      title:raw.title || packet.title || "地震情報",
+      publishedAt:publishedAt.toISOString(),
+      originTime,
+      hypocenter:raw.hypocenter || "震源情報を確認中",
+      latitude:raw.latitude,
+      longitude:raw.longitude,
+      depthKm:raw.depthKm,
+      magnitude:raw.magnitude,
+      maxIntensity:raw.maxIntensity || "—",
+      kind:Number(raw.code) === 556 ? "eew" : "earthquake"
+    });
+    if (!event) return;
+    state.events = [event, ...state.events.filter(item => item.id !== event.id)]
+      .sort((a,b) => b.publishedAtMs - a.publishedAtMs).slice(0, 50);
+    state.selectedEventId = event.id;
+    renderEvents();
+    renderWaveCountdown();
+    updateWaveCircles();
+    updateMapForSelectedEvent(false);
+    $("lastUpdated").textContent = formatTime(new Date().toISOString());
+    $("sourceName").textContent = "P2P地震情報 WebSocket";
+    showToast((Number(raw.code) === 556 ? "緊急地震速報" : "新着地震情報") + "をリアルタイム受信しました。");
+  }
+
+  function normalizeP2PTime(value) {
+    if (!value) return "";
+    const text = String(value).trim();
+    const match = text.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/);
+    if (match) return match[1] + "-" + match[2] + "-" + match[3] + "T" +
+      match[4] + ":" + match[5] + ":" + match[6] + "." + String(match[7] || "000").padEnd(3, "0").slice(0,3) + "+09:00";
+    return text;
   }
 
   function updateNotificationState() {
@@ -681,6 +824,7 @@
 
   function applySettingsToForm() {
     $("gasUrlInput").value = state.settings.gasUrl || "";
+    $("workerUrlInput").value = state.settings.workerUrl || "";
     $("pollIntervalInput").value = String(state.settings.pollSeconds || 15);
     $("arrivalLeadInput").value = String(state.settings.arrivalLeadSeconds ?? 30);
     $("newEventToggle").checked = !!state.settings.notifyNew;
@@ -709,8 +853,10 @@
   function saveSettingsFromForm() {
     try {
       const gasUrl = $("gasUrlInput").value.trim() ? normalizeGasUrl($("gasUrlInput").value) : "";
+      const workerUrl = $("workerUrlInput").value.trim() ? normalizeWorkerUrl($("workerUrlInput").value) : "";
       state.settings = {
         gasUrl,
+        workerUrl,
         pollSeconds: clamp(Number($("pollIntervalInput").value) || 15, 15, 60),
         arrivalLeadSeconds: clamp(Number($("arrivalLeadInput").value) || 0, 0, 60),
         notifyNew: $("newEventToggle").checked,
@@ -720,7 +866,8 @@
       saveSettingsToStorage();
       $("settingsDialog").close();
       restartPolling();
-      showToast(gasUrl ? "設定を保存しました。地震情報を取得します。" : "設定を保存しました。GAS URLは未登録です。");
+      startLiveSocket();
+      showToast(gasUrl || workerUrl ? "設定を保存しました。接続を開始します。" : "設定を保存しました。GAS URLとWorker URLは未登録です。");
     } catch (error) {
       $("settingsFeedback").textContent = error.message;
       $("settingsFeedback").className = "dialog-feedback error";
