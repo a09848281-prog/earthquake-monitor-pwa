@@ -244,7 +244,7 @@
       events.forEach((event) => state.seenEventIds.add(event.id));
       state.events = events;
       state.lastFetchAt = new Date();
-      if (!state.selectedEventId || !events.some((event) => event.id === state.selectedEventId)) {
+      if (newEvents.length || !state.selectedEventId || !events.some((event) => event.id === state.selectedEventId)) {
         state.selectedEventId = events[0] ? events[0].id : null;
       }
       state.firstSuccessfulLoad = true;
@@ -444,7 +444,7 @@
     [["P", data.pAt], ["S", data.sAt]].forEach(([wave, arrival]) => {
       const remaining = arrival - now;
       const threshold = lead === 0 ? 0 : lead;
-      const shouldSend = lead === 0 ? remaining <= 0 && remaining > -1200 : remaining <= threshold && remaining > threshold - 1200;
+      const shouldSend = lead === 0 ? remaining <= 0 && remaining > -5000 : remaining <= threshold && remaining > threshold - 5000;
       const key = event.id + ":" + wave + ":" + (lead === 0 ? "arrival" : "lead");
       if (shouldSend && !state.sentAlertKeys.has(key)) {
         state.sentAlertKeys.add(key);
