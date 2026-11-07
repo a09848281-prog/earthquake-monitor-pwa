@@ -93,6 +93,7 @@
     $("settingsButton").addEventListener("click", openSettings);
     $("openSettingsInline").addEventListener("click", openSettings);
     $("refreshButton").addEventListener("click", () => fetchLatest(true));
+    $("latestEventButton").addEventListener("click", selectLatestEvent);
     $("locateButton").addEventListener("click", requestLocation);
     $("locationButton").addEventListener("click", requestLocation);
     $("enableNotificationsButton").addEventListener("click", requestNotificationPermission);
@@ -359,6 +360,8 @@
       list.append(button);
     });
     $("eventCount").textContent = String(state.events.length);
+    const latestId = state.events[0] ? state.events[0].id : null;
+    $("latestEventButton").hidden = !latestId || state.selectedEventId === latestId;
   }
 
   function renderEmptyEvents(message) {
@@ -375,6 +378,16 @@
     renderWaveCountdown();
     updateMapForSelectedEvent(true);
     updateWaveCircles();
+  }
+
+  function selectLatestEvent() {
+    const latest = state.events[0];
+    if (!latest) {
+      showToast("表示できる地震情報がありません。");
+      return;
+    }
+    selectEvent(latest.id);
+    showToast("最新の地震情報に戻りました。");
   }
 
   function selectedEvent() {
@@ -418,13 +431,16 @@
     const now = Date.now();
     updateCountdownField("p", data.pAt, now);
     updateCountdownField("s", data.sAt, now);
-    $("estimateNote").textContent = "平均速度 P波 " + P_WAVE_KM_S.toFixed(1) + " km/s・S波 " + S_WAVE_KM_S.toFixed(1) + " km/s の簡易モデル。実際の到達時刻とは異なります。";
-    checkArrivalAlerts(event, data, now);
+    const isLatest = state.events.length > 0 && event.id === state.events[0].id;
+    $("estimateNote").textContent = (isLatest ? "最新の地震情報を表示中。 " : "過去の地震情報を表示中。 ") +
+      "平均速度 P波 " + P_WAVE_KM_S.toFixed(1) + " km/s・S波 " + S_WAVE_KM_S.toFixed(1) +
+      " km/s の簡易モデルです。実際の到達時刻とは異なります。";
+    if (isLatest) checkArrivalAlerts(event, data, now);
   }
 
   function updateCountdownField(prefix, arrivalAt, now) {
     const remaining = arrivalAt - now;
-    const text = remaining <= 0 ? "到達時刻経過" : formatRemaining(remaining);
+    const text = remaining <= 0 ? "到着済み（推定）" : formatRemaining(remaining);
     $(prefix + "Countdown").textContent = text;
     $(prefix + "ArrivalText").textContent = "到達目安 " + new Date(arrivalAt).toLocaleTimeString("ja-JP", { hour12: false });
   }
@@ -460,12 +476,28 @@
     });
   }
 
-  function sendNotification(title, body) {
+  async function sendNotification(title, body) {
     try {
-      new Notification(title, { body, icon: "./icons/icon.svg", badge: "./icons/icon.svg", tag: "eqm-" + title });
+      const options = {
+        body,
+        icon: "./icons/icon.svg",
+        badge: "./icons/icon.svg",
+        tag: "eqm-" + title
+      };
+      if ("serviceWorker" in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        if (registration && registration.showNotification) {
+          await registration.showNotification(title, options);
+        } else {
+          new Notification(title, options);
+        }
+      } else {
+        new Notification(title, options);
+      }
       if (state.settings.sound) playNotificationTone();
     } catch (error) {
       console.warn("通知を表示できませんでした。", error);
+      showToast("通知を表示できませんでした。端末の通知設定を確認してください。");
     }
   }
 
