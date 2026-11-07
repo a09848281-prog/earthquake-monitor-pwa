@@ -23,52 +23,63 @@ function json(data, status = 200, origin = APP_ORIGIN) {
 
 function scaleLabel(value) {
   const labels = {
-    10:"1",20:"2",30:"3",40:"4",45:"5弱",50:"5強",
-    55:"6弱",60:"6強",70:"7"
+    0:"0",10:"1",20:"2",30:"3",40:"4",45:"5弱",46:"5弱以上（推定）",
+    50:"5強",55:"6弱",60:"6強",70:"7",99:"5弱以上"
   };
   return labels[Number(value)] || "不明";
 }
 
 function describeMessage(data) {
-  if (!data || !["551", "556"].includes(String(data.code))) return null;
+  const code = Number(data?.code);
+  if (!data || ![551, 554, 556].includes(code)) return null;
   if (data.test) return null;
 
-  const isEew = Number(data.code) === 556;
+  const isEew = code === 556;
+  const isDetection = code === 554;
   const quake = data.earthquake || {};
   const hypo = quake.hypocenter || {};
   const cancelled = isEew && data.cancelled === true;
   const place = String(hypo.name || hypo.reduceName || "震源情報を確認中");
-  const magnitude = Number(quake.magnitude);
-  const scale = scaleLabel(quake.maxScale);
+  const magnitude = Number(hypo.magnitude);
+  const eewScales = Array.isArray(quake.areas)
+    ? quake.areas.map(area => Number(area.scaleTo)).filter(value => Number.isFinite(value) && value >= 0)
+    : [];
+  const scaleValue = isEew
+    ? (eewScales.length ? Math.max(...eewScales) : null)
+    : hypo.maxScale;
+  const scale = scaleValue === null || scaleValue === undefined ? "不明" : scaleLabel(scaleValue);
   const time = String(quake.originTime || quake.time || "");
   const magText = Number.isFinite(magnitude) && magnitude >= 0 ? "M" + magnitude.toFixed(1) : "M不明";
-  const title = cancelled
-    ? "緊急地震速報・取消"
+  const title = isDetection
+    ? "緊急地震速報を検知"
+    : cancelled ? "緊急地震速報・取消"
     : isEew ? "緊急地震速報（警報）" : "地震情報";
   const details = [
     place,
     magText,
-    scale === "不明" ? "最大震度不明" : "最大震度 " + scale,
+    scale === "不明" ? "予測震度不明" : (isEew ? "予測最大震度 " : "最大震度 ") + scale,
     time ? "発生 " + time : ""
   ].filter(Boolean);
   return {
     id: String(data.id || data.time || Date.now()),
-    code: Number(data.code),
+    code,
     title,
-    body: cancelled ? "発表されていた緊急地震速報が取り消されました。" : details.join(" / "),
+    body: isDetection
+      ? "緊急地震速報の発表を検知しました。詳細情報を受信中です。"
+      : cancelled ? "発表されていた緊急地震速報が取り消されました。" : details.join(" / "),
     url: "/",
-    urgency: isEew ? "high" : "normal",
+    urgency: isEew || isDetection ? "high" : "normal",
     event: {
-      code: Number(data.code),
+      code,
       id: String(data.id || ""),
       title,
       hypocenter: place,
       magnitude: Number.isFinite(magnitude) && magnitude >= 0 ? magnitude : null,
       maxIntensity: scale,
       originTime: time,
-      latitude: Number.isFinite(Number(hypo.latitude)) && Number(hypo.latitude) > -90 ? Number(hypo.latitude) : null,
-      longitude: Number.isFinite(Number(hypo.longitude)) && Number(hypo.longitude) > -180 ? Number(hypo.longitude) : null,
-      depthKm: Number.isFinite(Number(hypo.depth)) && Number(hypo.depth) >= 0 ? Number(hypo.depth) : null,
+      latitude: hypo.latitude !== undefined && hypo.latitude !== null && Number.isFinite(Number(hypo.latitude)) && Number(hypo.latitude) > -90 ? Number(hypo.latitude) : null,
+      longitude: hypo.longitude !== undefined && hypo.longitude !== null && Number.isFinite(Number(hypo.longitude)) && Number(hypo.longitude) > -180 ? Number(hypo.longitude) : null,
+      depthKm: hypo.depth !== undefined && hypo.depth !== null && Number.isFinite(Number(hypo.depth)) && Number(hypo.depth) >= 0 ? Number(hypo.depth) : null,
       cancelled
     }
   };
