@@ -4,9 +4,10 @@ GitHub Pages + Google Apps Script (GAS) で動かす、個人利用向けの地�
 
 ## 構成
 
-- GitHub Pages: 画面、地図、1秒ごとのカウントダウン、通知
+- GitHub Pages: 画面、地図、1秒ごとのカウントダウン、PWA
 - Google Apps Script: 気象庁 XML の取得・解析・キャッシュと JSONP API
-- 外部アカウント登録や専用 WebSocket サーバーは不要
+- Cloudflare Workers + Durable Objects（任意）: P2P地震情報 WebSocket の受信・中継、Web Push の送信
+- Service Worker: アプリ終了中のプッシュ通知を受信・表示
 
 ## 重要な注意
 
@@ -15,7 +16,7 @@ P波・S波の到達時刻は、震源・発震時刻・平均速度を使った
 
 ブラウザー画面は1秒ごとに更新できますが、気象庁の情報自体が毎秒更新されるわけではありません。GASへの問い合わせ間隔は初期値15秒です。GASの実行回数・外部取得回数を抑えるため、必要以上に短くしないでください。
 
-PWAを閉じている間は通常の定期取得・カウントダウンを継続できません。iPadのホーム画面に追加したWebアプリの通知機能にもOS側の制約があります。バックグラウンドでの常時監視や、緊急速報と同等の通知を保証しません。
+PWAを閉じている間、画面側の定期取得・カウントダウンは動作しません。Cloudflare Workerを別途デプロイし、Web Pushを登録した場合は、サーバー側でP2P地震情報を受信してiPadへ通知できます。ただし、Cloudflare・P2P地震情報・Appleのプッシュ配信・通信環境の影響を受けるため、常時監視や即時配信は保証されません。P2P地震情報の緊急地震速報データは無保証であり、公式の緊急地震速報やJ-Alertの代替にはなりません。
 
 ## ファイル
 
@@ -23,7 +24,8 @@ PWAを閉じている間は通常の定期取得・カウントダウンを継�
 - styles.css: レスポンシブ・iPad向けスタイル
 - app.js: 地図、GAS接続、現在地、波の推定、通知
 - manifest.webmanifest: PWA設定
-- sw.js: アプリシェルのキャッシュ
+- sw.js: アプリシェルのキャッシュとWeb Push受信
+- cloudflare/: Cloudflare Worker / Durable Objectのバックエンドとセットアップ手順
 - icons/icon.svg: アプリアイコン
 
 ## 1. GitHub Pagesを有効化
@@ -102,7 +104,16 @@ GASはJMAのXMLの階層・要素名を正しく解析し、震源地名・震�
 
 GASはWebアプリAPIとして呼び出せる公開設定が必要です。URLには秘密情報やAPIキーを含めないでください。
 
-## 4. iPadにインストール
+## 4. Cloudflareのリアルタイム受信・バックグラウンド通知（任意）
+
+1. `cloudflare/README.md` の手順でCloudflare Workerをデプロイします。
+2. VAPID鍵は `cloudflare/generate-vapid.html` で端末内生成し、Cloudflare Secretに登録します。
+3. WorkerのURLをコピーします。
+4. アプリの設定画面でCloudflare Worker URLを登録します。
+
+Cloudflareの設定が完了していない場合でも、従来のGAS経由の地震情報表示は利用できます。
+
+## 5. iPadにインストール
 
 1. iPadのSafariでGitHub Pages URLを開く
 2. 共有ボタン → ホーム画面に追加
@@ -114,9 +125,9 @@ GASはWebアプリAPIとして呼び出せる公開設定が必要です。URL�
 
 - 画面内の経過時間、波の位置、到達目安: 1秒ごとに更新
 - GASからの地震情報取得: 初期値15秒ごと（設定で変更可）
-- 新着地震情報: ブラウザーの通知・音（許可された場合）
-- P波/S波の到達目安: 設定した残り時間の範囲に入ったときに通知
-- バックグラウンドでの継続監視: 非対応・保証なし
+- 新着地震情報: GAS更新時の画面内通知
+- P波/S波の到達目安: 設定した残り時間の範囲に入ったときに画面内通知
+- Cloudflare Workerを設定した場合: P2P地震情報の地震情報・緊急地震速報をWeb Pushで通知（アプリ終了中も受信可能。ただし配信保証なし）
 
 ## 地図について
 
