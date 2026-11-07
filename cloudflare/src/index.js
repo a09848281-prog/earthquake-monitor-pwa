@@ -133,7 +133,8 @@ export class EarthquakeHub extends DurableObject {
   }
 
   async ensureUpstream() {
-    if (this.upstream && this.upstream.readyState === WebSocket.OPEN &&
+    if (this.upstream &&
+        (this.upstream.readyState === WebSocket.OPEN || this.upstream.readyState === WebSocket.CONNECTING) &&
         Date.now() - this.connectedAt < 12 * 60 * 1000) return;
 
     if (this.upstream) {
