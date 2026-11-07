@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>VAPID鍵生成</title>
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;max-width:760px;margin:30px auto;padding:0 18px;background:#101827;color:#edf4fb}
+h1{font-size:24px}p{line-height:1.7;color:#b9c8d8}
+button{padding:12px 18px;border:0;border-radius:9px;background:#55d6e8;color:#08151d;font-weight:700}
+label{display:block;margin:18px 0 7px;font-weight:700}
+textarea{width:100%;min-height:70px;box-sizing:border-box;background:#07111d;color:#dff;border:1px solid #456;padding:10px;border-radius:8px;overflow-wrap:anywhere}
+small{color:#ffbe78}
+</style>
+</head>
+<body>
+<h1>Web Push用 VAPID鍵生成</h1>
+<p>このページはブラウザー内のWeb Crypto APIだけで鍵を生成します。秘密鍵を外部へ送信・保存しません。生成後は秘密鍵をCloudflareのSecretに登録し、GitHubなどへ公開しないでください。</p>
+<button id="generate" type="button">🔐 VAPID鍵を生成</button>
+<p id="status" role="status"></p>
+<label for="public">VAPID_PUBLIC_KEY（公開鍵）</label>
+<textarea id="public" readonly></textarea>
+<label for="private">VAPID_PRIVATE_KEY（秘密鍵）</label>
+<textarea id="private" readonly></textarea>
+<small>※ 秘密鍵はCloudflare WorkerのSecretにだけ登録してください。生成ページやスクリーンショットを公開しないでください。</small>
+<script>
+const toBase64Url = (bytes) => {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+};
+document.getElementById("generate").addEventListener("click", async () => {
+  const status = document.getElementById("status");
+  status.textContent = "生成中…";
+  try {
+    const pair = await crypto.subtle.generateKey({name:"ECDSA",namedCurve:"P-256"},true,["sign","verify"]);
+    const jwk = await crypto.subtle.exportKey("jwk",pair.privateKey);
+    const publicBytes = new Uint8Array(65);
+    publicBytes[0] = 4;
+    const x = Uint8Array.from(atob(jwk.x.replace(/-/g,"+").replace(/_/g,"/") + "=="),c=>c.charCodeAt(0));
+    const y = Uint8Array.from(atob(jwk.y.replace(/-/g,"+").replace(/_/g,"/") + "=="),c=>c.charCodeAt(0));
+    publicBytes.set(x,1);
+    publicBytes.set(y,33);
+    document.getElementById("public").value = toBase64Url(publicBytes);
+    document.getElementById("private").value = jwk.d;
+    status.textContent = "生成しました。このページを閉じる前に2つの値をCloudflareのSecretへ登録してください。";
+  } catch (error) {
+    status.textContent = "生成できませんでした: " + error.message;
+  }
+});
+</script>
+</body>
+</html>
