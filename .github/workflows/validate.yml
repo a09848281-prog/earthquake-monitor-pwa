@@ -1,0 +1,39 @@
+name: Validate PWA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check app.js
+          node --check sw.js
+
+      - name: Validate PWA manifest
+        run: node -e "JSON.parse(require('node:fs').readFileSync('manifest.webmanifest', 'utf8'))"
+
+      - name: Check required files
+        run: |
+          test -s index.html
+          test -s styles.css
+          test -s app.js
+          test -s sw.js
+          test -s manifest.webmanifest
+          test -s icons/icon.svg
