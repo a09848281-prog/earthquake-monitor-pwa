@@ -38,8 +38,12 @@ document.getElementById("generate").addEventListener("click", async () => {
     const jwk = await crypto.subtle.exportKey("jwk",pair.privateKey);
     const publicBytes = new Uint8Array(65);
     publicBytes[0] = 4;
-    const x = Uint8Array.from(atob(jwk.x.replace(/-/g,"+").replace(/_/g,"/") + "=="),c=>c.charCodeAt(0));
-    const y = Uint8Array.from(atob(jwk.y.replace(/-/g,"+").replace(/_/g,"/") + "=="),c=>c.charCodeAt(0));
+    const decode = (value) => {
+      const base64 = value.replace(/-/g,"+").replace(/_/g,"/") + "=".repeat((4 - value.length % 4) % 4);
+      return Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
+    };
+    const x = decode(jwk.x);
+    const y = decode(jwk.y);
     publicBytes.set(x,1);
     publicBytes.set(y,33);
     document.getElementById("public").value = toBase64Url(publicBytes);
