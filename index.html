@@ -129,8 +129,8 @@
               <div><p class="eyebrow">ALERTS</p><h2>通知</h2></div>
               <span class="alert-state" id="alertState">未許可</span>
             </div>
-            <p class="alert-copy">新着地震情報や、推定到達時刻が近づいたときに、この画面を開いている間に通知します。</p>
-            <button class="secondary-button full-width" id="enableNotificationsButton" type="button">通知を設定する</button>
+            <p class="alert-copy" id="alertCopy">新着地震情報・緊急地震速報を通知します。アプリ終了中の通知にはCloudflare Workerの登録が必要です。</p>
+            <button class="secondary-button full-width" id="enableNotificationsButton" type="button">通知を許可・登録する</button>
             <div class="sound-row"><span>通知音</span><label class="switch"><input id="soundToggle" type="checkbox" checked><span class="switch-slider"></span></label></div>
           </section>
 
@@ -156,6 +156,9 @@
       <label class="field-label" for="gasUrlInput">GAS Webアプリ URL</label>
       <input id="gasUrlInput" class="text-input" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="url">
       <p class="field-help">末尾が /exec のデプロイURLを入力してください。URLはこの端末内に保存します。</p>
+      <label class="field-label" for="workerUrlInput">Cloudflare Worker URL（バックグラウンド通知・リアルタイム接続）</label>
+      <input id="workerUrlInput" class="text-input" type="url" inputmode="url" placeholder="https://earthquake-monitor-push.アカウント.workers.dev" autocomplete="url">
+      <p class="field-help">Cloudflare Workerをデプロイした後、そのURLを入力してください。</p>
       <div class="form-divider"></div>
       <label class="field-label" for="pollIntervalInput">地震情報の取得間隔</label>
       <select id="pollIntervalInput" class="text-input">
