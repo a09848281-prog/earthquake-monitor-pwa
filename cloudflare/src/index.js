@@ -9,7 +9,7 @@ function corsHeaders(origin) {
   return {
     "Access-Control-Allow-Origin": origin === APP_ORIGIN ? APP_ORIGIN : "null",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Vary": "Origin"
   };
 }
@@ -260,6 +260,9 @@ export default {
     }
 
     if (url.pathname === "/api/subscribe" && request.method === "POST") {
+      if (!env.APP_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.APP_TOKEN) {
+        return json({ok:false,error:"登録トークンが正しくありません。"}, 401, origin);
+      }
       const body = await request.text();
       const response = await hub.fetch(new Request("https://hub.internal/internal/subscribe", {
         method:"POST",
