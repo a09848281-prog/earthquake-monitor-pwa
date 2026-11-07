@@ -1,0 +1,21 @@
+{
+  "id": "./",
+  "name": "地震モニター PWA",
+  "short_name": "地震モニター",
+  "description": "地震情報とP波・S波の到達目安を表示する個人利用向けモニター",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a111b",
+  "theme_color": "#0b1320",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
