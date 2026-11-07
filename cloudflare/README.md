@@ -25,11 +25,11 @@ npx wrangler secret put VAPID_SUBJECT
 npm run deploy
 ```
 
-Generate a VAPID pair with a Web Push key generator, for example:
+Generate a VAPID pair locally with the included browser-only generator:
 
-```sh
-npx web-push generate-vapid-keys
-```
+1. Open `https://a09848281-prog.github.io/earthquake-monitor-pwa/cloudflare/generate-vapid.html` in a secure browser.
+2. Tap Generate. The key pair is created locally in that browser; the page does not upload it.
+3. Copy the public and private keys into the matching Cloudflare Worker secrets.
 
 Save the public key in `VAPID_PUBLIC_KEY`, the private key in `VAPID_PRIVATE_KEY`, and set `VAPID_SUBJECT` to:
 
