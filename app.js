@@ -259,9 +259,12 @@
         ? events.filter((event) => !state.seenEventIds.has(event.id))
         : [];
       events.forEach((event) => state.seenEventIds.add(event.id));
-      state.events = events;
+      const liveEvents = state.events.filter((event) => event.id.startsWith("p2p:"));
+      const mergedEvents = [...events, ...liveEvents.filter((live) => !events.some((event) => event.id === live.id))]
+        .sort((a, b) => b.publishedAtMs - a.publishedAtMs).slice(0, 50);
+      state.events = mergedEvents;
       state.lastFetchAt = new Date();
-      if (newEvents.length || !state.selectedEventId || !events.some((event) => event.id === state.selectedEventId)) {
+      if (newEvents.length || !state.selectedEventId || !mergedEvents.some((event) => event.id === state.selectedEventId)) {
         state.selectedEventId = events[0] ? events[0].id : null;
       }
       state.firstSuccessfulLoad = true;
