@@ -22,6 +22,7 @@ npx wrangler login
 npx wrangler secret put VAPID_PUBLIC_KEY
 npx wrangler secret put VAPID_PRIVATE_KEY
 npx wrangler secret put VAPID_SUBJECT
+npx wrangler secret put APP_TOKEN
 npm run deploy
 ```
 
@@ -29,9 +30,10 @@ Generate a VAPID pair locally with the included browser-only generator:
 
 1. Open `https://a09848281-prog.github.io/earthquake-monitor-pwa/cloudflare/generate-vapid.html` in a secure browser.
 2. Tap Generate. The key pair is created locally in that browser; the page does not upload it.
-3. Copy the public and private keys into the matching Cloudflare Worker secrets.
+3. Copy the public key, private key, and APP_TOKEN into matching Cloudflare Worker secrets.
+4. Save the APP_TOKEN separately; you will enter it into the PWA settings later.
 
-Save the public key in `VAPID_PUBLIC_KEY`, the private key in `VAPID_PRIVATE_KEY`, and set `VAPID_SUBJECT` to:
+Save the public key in `VAPID_PUBLIC_KEY`, the private key in `VAPID_PRIVATE_KEY`, and the random token in `APP_TOKEN`. Set `VAPID_SUBJECT` to:
 
 ```
 https://a09848281-prog.github.io/earthquake-monitor-pwa/
@@ -39,7 +41,7 @@ https://a09848281-prog.github.io/earthquake-monitor-pwa/
 
 Keep the private key secret. Never put it in GitHub Pages or browser code.
 
-After deployment, copy the Worker URL (for example `https://earthquake-monitor-push.<your-subdomain>.workers.dev`). In the PWA settings, paste it into the Cloudflare Worker URL field and save.
+After deployment, copy the Worker URL (for example `https://earthquake-monitor-push.<your-subdomain>.workers.dev`). In the PWA settings, paste it into the Cloudflare Worker URL field and the APP_TOKEN into the registration token field, then save.
 
 ## iPad setup
 
@@ -54,7 +56,7 @@ The browser must be online and notification permission must remain enabled. Push
 ## API
 
 - `GET /api/config`: returns the public VAPID key.
-- `POST /api/subscribe`: stores a PushSubscription.
+- `POST /api/subscribe`: stores a PushSubscription (requires the APP_TOKEN bearer token).
 - `GET /api/status`: health/status snapshot.
 - `GET /live`: WebSocket relay for open PWA clients.
 
