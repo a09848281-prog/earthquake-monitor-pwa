@@ -7,6 +7,7 @@
   const DEFAULT_SETTINGS = {
     gasUrl: "",
     workerUrl: "",
+    workerToken: "",
     pollSeconds: 15,
     arrivalLeadSeconds: 30,
     notifyNew: true,
@@ -686,9 +687,9 @@
   }
 
   async function subscribeForWebPush() {
-    if (!state.settings.workerUrl) {
+    if (!state.settings.workerUrl || !state.settings.workerToken) {
       openSettings();
-      showToast("先に設定からCloudflare Worker URLを登録してください。");
+      showToast("Cloudflare Worker URLと登録トークンを設定してください。");
       return;
     }
     const registration = await navigator.serviceWorker.ready;
@@ -705,7 +706,10 @@
     }
     const response = await fetch(state.settings.workerUrl + "/api/subscribe", {
       method:"POST",
-      headers:{"Content-Type":"application/json"},
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization":"Bearer " + state.settings.workerToken
+      },
       body:JSON.stringify(subscription)
     });
     const result = await response.json();
@@ -828,6 +832,7 @@
   function applySettingsToForm() {
     $("gasUrlInput").value = state.settings.gasUrl || "";
     $("workerUrlInput").value = state.settings.workerUrl || "";
+    $("workerTokenInput").value = state.settings.workerToken || "";
     $("pollIntervalInput").value = String(state.settings.pollSeconds || 15);
     $("arrivalLeadInput").value = String(state.settings.arrivalLeadSeconds ?? 30);
     $("newEventToggle").checked = !!state.settings.notifyNew;
@@ -857,9 +862,11 @@
     try {
       const gasUrl = $("gasUrlInput").value.trim() ? normalizeGasUrl($("gasUrlInput").value) : "";
       const workerUrl = $("workerUrlInput").value.trim() ? normalizeWorkerUrl($("workerUrlInput").value) : "";
+      const workerToken = $("workerTokenInput").value.trim();
       state.settings = {
         gasUrl,
         workerUrl,
+        workerToken,
         pollSeconds: clamp(Number($("pollIntervalInput").value) || 15, 15, 60),
         arrivalLeadSeconds: clamp(Number($("arrivalLeadInput").value) || 0, 0, 60),
         notifyNew: $("newEventToggle").checked,
