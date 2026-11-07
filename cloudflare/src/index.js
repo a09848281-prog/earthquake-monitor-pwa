@@ -24,7 +24,7 @@ function json(data, status = 200, origin = APP_ORIGIN) {
 function scaleLabel(value) {
   const labels = {
     0:"0",10:"1",20:"2",30:"3",40:"4",45:"5弱",46:"5弱以上（推定）",
-    50:"5強",55:"6弱",60:"6強",70:"7",99:"5弱以上"
+    50:"5強",55:"6弱",60:"6強",70:"7",99:"程度以上"
   };
   return labels[Number(value)] || "不明";
 }
