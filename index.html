@@ -70,7 +70,10 @@
           <section class="panel wave-panel">
             <div class="panel-heading">
               <div><p class="eyebrow">WAVE ARRIVAL ESTIMATE</p><h2>到達予測カウントダウン</h2></div>
-              <span class="estimate-tag">簡易推定</span>
+              <div class="wave-heading-actions">
+                <button class="latest-event-button" id="latestEventButton" type="button" hidden>↩ 最新に戻る</button>
+                <span class="estimate-tag">簡易推定</span>
+              </div>
             </div>
             <div id="waveEmpty" class="empty-state">地震情報と現在地を設定すると、P波・S波の到達目安を表示します。</div>
             <div id="waveContent" class="wave-content" hidden>
